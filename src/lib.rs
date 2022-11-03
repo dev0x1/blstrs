@@ -44,6 +44,16 @@ use ff::Field;
 use group::prime::PrimeCurveAffine;
 use pairing_lib::{Engine, MultiMillerLoop, PairingCurveAffine};
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+/// Use the generic_array re-exported by digest to avoid a version mismatch
+#[cfg(feature = "h2c_generic_hash")]
+pub(crate) use digest::generic_array;
+
+#[cfg(feature = "h2c_generic_hash")]
+pub mod hash_to_curve;
+
 /// Bls12-381 engine
 #[derive(Debug, Copy, Clone)]
 pub struct Bls12;

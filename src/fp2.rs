@@ -13,6 +13,15 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp::{Fp, FROBENIUS_COEFF_FP2_C1};
 
+#[cfg(feature = "h2c_generic_hash")]
+use digest::{
+    consts::{U128, U64},
+    generic_array::GenericArray,
+};
+
+#[cfg(feature = "h2c_generic_hash")]
+use crate::hash_to_curve::HashToField;
+
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Fp2(pub(crate) blst_fp2);
@@ -319,6 +328,17 @@ impl ec_gpu::GpuField for Fp2 {
     }
 }
 
+#[cfg(feature = "h2c_generic_hash")]
+impl HashToField for Fp2 {
+    // ceil(log2(p)) = 381, m = 2, k = 128.
+    type InputLength = U128;
+
+    fn from_okm(okm: &GenericArray<u8, U128>) -> Fp2 {
+        let c0 = <Fp as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(&okm[..64]));
+        let c1 = <Fp as HashToField>::from_okm(GenericArray::<u8, U64>::from_slice(&okm[64..]));
+        Fp2::new(c0, c1)
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -13,6 +13,12 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use crate::fp2::Fp2;
 
+#[cfg(feature = "h2c_generic_hash")]
+use digest::{consts::U64, generic_array::GenericArray};
+
+#[cfg(feature = "h2c_generic_hash")]
+use crate::hash_to_curve::HashToField;
+
 // Little-endian non-Montgomery form.
 #[allow(dead_code)]
 const MODULUS: [u64; 6] = [
@@ -600,7 +606,7 @@ impl Fp {
 
     /// Constructs an element of `Fp` from a little-endian array of limbs without checking that it
     /// is canonical and without converting it to Montgomery form (i.e. without multiplying by `R`).
-    pub fn from_raw_unchecked(l: [u64; 6]) -> Fp {
+    pub const fn from_raw_unchecked(l: [u64; 6]) -> Fp {
         Fp(blst_fp { l })
     }
 
@@ -653,6 +659,32 @@ impl Fp {
     #[inline]
     pub fn square_assign(&mut self) {
         unsafe { blst_fp_sqr(&mut self.0, &self.0) };
+    }
+}
+
+#[cfg(feature = "h2c_generic_hash")]
+impl HashToField for Fp {
+    // ceil(log2(p)) = 381, m = 1, k = 128.
+    type InputLength = U64;
+
+    fn from_okm(okm: &GenericArray<u8, U64>) -> Fp {
+        const F_2_256: Fp = Fp::from_raw_unchecked([
+            0x075b_3cd7_c5ce_820f,
+            0x3ec6_ba62_1c3e_db0b,
+            0x168a_13d8_2bff_6bce,
+            0x8766_3c4b_f8c4_49d2,
+            0x15f3_4c83_ddc8_d830,
+            0x0f96_28b4_9caa_2e85,
+        ]);
+
+        let mut bs = [0u8; 48];
+        bs[16..].copy_from_slice(&okm[..32]);
+        let db = Fp::from_bytes_be(&bs).unwrap();
+
+        bs[16..].copy_from_slice(&okm[32..]);
+        let da = Fp::from_bytes_be(&bs).unwrap();
+
+        db * F_2_256 + da
     }
 }
 
